@@ -20,8 +20,8 @@ jobs:
           $zip = "$env:RUNNER_TEMP\ahk.zip"
           Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $zip
           Expand-Archive -Path $zip -DestinationPath "$env:RUNNER_TEMP\ahk"
-          $subdir = Get-ChildItem -Directory -Path "$env:RUNNER_TEMP\ahk" | Select-Object -First 1
-          echo "AHK_DIR=$($subdir.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
+          $ahkDir = Get-ChildItem -Recurse -Path "$env:RUNNER_TEMP\ahk" -Filter "AutoHotkey64.exe" | Select-Object -First 1 | Split-Path -Parent
+          echo "AHK_DIR=$ahkDir" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Compile
         run: |
