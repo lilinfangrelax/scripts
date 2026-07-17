@@ -20,7 +20,8 @@ jobs:
           $zip = "$env:RUNNER_TEMP\ahk.zip"
           Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $zip
           Expand-Archive -Path $zip -DestinationPath "$env:RUNNER_TEMP\ahk"
-          echo "AHK_DIR=$env:RUNNER_TEMP\ahk" | Out-File -FilePath $env:GITHUB_ENV -Append
+          $subdir = Get-ChildItem -Directory -Path "$env:RUNNER_TEMP\ahk" | Select-Object -First 1
+          echo "AHK_DIR=$($subdir.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Compile
         run: |
