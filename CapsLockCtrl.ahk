@@ -15,5 +15,5 @@ CapsLock::
     }
 }
 
-!WheelUp::Send("^#{Right}")
-!WheelDown::Send("^#{Left}")
+!WheelUp::Send("^#{Left}")
+!WheelDown::Send("^#{Right}")
