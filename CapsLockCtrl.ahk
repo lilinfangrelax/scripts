@@ -1,4 +1,5 @@
 ; CapsLock: 短按 = Esc, 长按 = Ctrl
+; Alt+鼠标滚轮: 切换虚拟桌面 (Ctrl+Win+左右方向键)
 #Requires AutoHotkey >=2.0
 
 CapsLock::
@@ -13,3 +14,6 @@ CapsLock::
         Send("{Ctrl Up}")
     }
 }
+
+!WheelUp::Send("^#{Right}")
+!WheelDown::Send("^#{Left}")
