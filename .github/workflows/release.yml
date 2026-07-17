@@ -17,8 +17,8 @@ jobs:
 
       - name: Compile
         run: |
-          $ahk = (Get-ChildItem -Path "C:\Program Files\AutoHotkey" -Filter "AutoHotkey64.exe" -Recurse | Select-Object -First 1).FullName
-          $ahk2exe = (Get-ChildItem -Path "C:\Program Files\AutoHotkey" -Filter "Ahk2Exe.exe" -Recurse | Select-Object -First 1).FullName
+          $ahk = (Get-ChildItem -Path "C:\ProgramData\chocolatey\lib\autohotkey.portable" -Filter "AutoHotkey64.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1).FullName
+          $ahk2exe = (Get-ChildItem -Path "C:\ProgramData\chocolatey\lib\autohotkey.portable" -Filter "Ahk2Exe.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1).FullName
           & $ahk2exe /in CapsLockCtrl.ahk /out CapsLockCtrl.exe /base $ahk
 
       - name: Release
