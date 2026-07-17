@@ -13,18 +13,29 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install AutoHotkey v2
-        run: choco install autohotkey.portable --no-progress -y
+        shell: pwsh
+        run: |
+          $release = Invoke-RestMethod -Uri "https://api.github.com/repos/AutoHotkey/AutoHotkey/releases/latest" -Headers @{ Authorization = "Bearer $env:GITHUB_TOKEN" }
+          $asset = $release.assets | Where-Object { $_.name -like 'AutoHotkey_2*.zip' } | Select-Object -First 1
+          $zip = "$env:RUNNER_TEMP\ahk.zip"
+          Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $zip
+          Expand-Archive -Path $zip -DestinationPath "$env:RUNNER_TEMP\ahk"
+          Get-ChildItem -Recurse -Path "$env:RUNNER_TEMP\ahk" | ForEach-Object { Write-Host $_.FullName }
 
-      - name: Debug
-        run: Get-ChildItem -Path "C:\ProgramData\chocolatey\lib\autohotkey.portable" -Recurse -ErrorAction SilentlyContinue | Select-Object FullName, Length
+      - name: Find AHK root
+        shell: pwsh
+        run: |
+          $ahkExe = Get-ChildItem -Recurse -Path "$env:RUNNER_TEMP\ahk" -Filter "AutoHotkey64.exe" | Select-Object -First 1
+          if (-not $ahkExe) { $ahkExe = Get-ChildItem -Recurse -Path "$env:RUNNER_TEMP\ahk" -Filter "AutoHotkey*.exe" | Select-Object -First 1 }
+          $ahk2exe = Get-ChildItem -Recurse -Path "$env:RUNNER_TEMP\ahk" -Filter "Ahk2Exe.exe" | Select-Object -First 1
+          "AHK_DIR=$($ahkExe.DirectoryName)" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "AHK_EXE=$($ahkExe.Name)" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "AHK2EXE=$($ahk2exe.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Compile
+        shell: pwsh
         run: |
-          $ahk = (Get-ChildItem -Path "C:\ProgramData\chocolatey\lib\autohotkey.portable" -Filter "AutoHotkey64.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1).FullName
-          $ahk2exe = (Get-ChildItem -Path "C:\ProgramData\chocolatey\lib\autohotkey.portable" -Filter "Ahk2Exe.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1).FullName
-          Write-Host "AHK: $ahk"
-          Write-Host "Ahk2Exe: $ahk2exe"
-          & $ahk2exe /in CapsLockCtrl.ahk /out CapsLockCtrl.exe /base $ahk
+          & "$env:AHK2EXE" /in CapsLockCtrl.ahk /out CapsLockCtrl.exe /base "$env:AHK_DIR\$env:AHK_EXE"
 
       - name: Release
         uses: softprops/action-gh-release@v2
