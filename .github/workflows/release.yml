@@ -15,10 +15,15 @@ jobs:
       - name: Install AutoHotkey v2
         run: choco install autohotkey.portable --no-progress -y
 
+      - name: Debug
+        run: Get-ChildItem -Path "C:\ProgramData\chocolatey\lib\autohotkey.portable" -Recurse -ErrorAction SilentlyContinue | Select-Object FullName, Length
+
       - name: Compile
         run: |
           $ahk = (Get-ChildItem -Path "C:\ProgramData\chocolatey\lib\autohotkey.portable" -Filter "AutoHotkey64.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1).FullName
           $ahk2exe = (Get-ChildItem -Path "C:\ProgramData\chocolatey\lib\autohotkey.portable" -Filter "Ahk2Exe.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1).FullName
+          Write-Host "AHK: $ahk"
+          Write-Host "Ahk2Exe: $ahk2exe"
           & $ahk2exe /in CapsLockCtrl.ahk /out CapsLockCtrl.exe /base $ahk
 
       - name: Release
