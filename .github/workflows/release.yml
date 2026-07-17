@@ -13,19 +13,13 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install AutoHotkey v2
-        run: |
-          $repo = 'AutoHotkey/AutoHotkey'
-          $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases/latest"
-          $asset = $release.assets | Where-Object { $_.name -like 'AutoHotkey_2*.zip' } | Select-Object -First 1
-          $zip = "$env:RUNNER_TEMP\ahk.zip"
-          Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $zip
-          Expand-Archive -Path $zip -DestinationPath "$env:RUNNER_TEMP\ahk"
-          $ahkDir = Get-ChildItem -Recurse -Path "$env:RUNNER_TEMP\ahk" -Filter "AutoHotkey64.exe" | Select-Object -First 1 | Split-Path -Parent
-          echo "AHK_DIR=$ahkDir" | Out-File -FilePath $env:GITHUB_ENV -Append
+        run: choco install autohotkey.portable --no-progress -y
 
       - name: Compile
         run: |
-          & "$env:AHK_DIR\Compiler\Ahk2Exe.exe" /in CapsLockCtrl.ahk /out CapsLockCtrl.exe /base "$env:AHK_DIR\AutoHotkey64.exe"
+          $ahk = (Get-ChildItem -Path "C:\Program Files\AutoHotkey" -Filter "AutoHotkey64.exe" -Recurse | Select-Object -First 1).FullName
+          $ahk2exe = (Get-ChildItem -Path "C:\Program Files\AutoHotkey" -Filter "Ahk2Exe.exe" -Recurse | Select-Object -First 1).FullName
+          & $ahk2exe /in CapsLockCtrl.ahk /out CapsLockCtrl.exe /base $ahk
 
       - name: Release
         uses: softprops/action-gh-release@v2
