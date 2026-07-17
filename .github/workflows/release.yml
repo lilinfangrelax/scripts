@@ -1,0 +1,31 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install AutoHotkey v2
+        run: |
+          $url = 'https://www.autohotkey.com/download/ahk-v2.zip'
+          $zip = "$env:RUNNER_TEMP\ahk-v2.zip"
+          Invoke-WebRequest -Uri $url -OutFile $zip
+          Expand-Archive -Path $zip -DestinationPath "$env:RUNNER_TEMP\ahk"
+          echo "AHK_DIR=$env:RUNNER_TEMP\ahk" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Compile
+        run: |
+          & "$env:AHK_DIR\Compiler\Ahk2Exe.exe" /in CapsLockCtrl.ahk /out CapsLockCtrl.exe /base "$env:AHK_DIR\AutoHotkey64.exe"
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: CapsLockCtrl.exe
+          generate_release_notes: true
