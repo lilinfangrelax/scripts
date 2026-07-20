@@ -14,42 +14,34 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download AutoHotkey v2 installer
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          $release = Invoke-RestMethod -Uri "https://api.github.com/repos/AutoHotkey/AutoHotkey/releases/latest" -Headers @{ Authorization = "Bearer $env:GH_TOKEN" }
-          $asset = $release.assets | Where-Object { $_.name -like '*_setup.exe' } | Select-Object -First 1
-          $installer = "$env:RUNNER_TEMP\ahk-setup.exe"
-          Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $installer
-          "AHK_INSTALLER=$installer" | Out-File -FilePath $env:GITHUB_ENV -Append
-
-      - name: Install AutoHotkey v2
+      - name: Install AutoHotkey v2 via Scoop
         shell: pwsh
         run: |
-          Start-Process -FilePath "$env:AHK_INSTALLER" -ArgumentList "/S /D=C:\ahk" -Wait -NoNewWindow
-          Write-Host "Installed AHK files:"
-          Get-ChildItem -Path "C:\ahk" -Recurse -Filter "*.exe" | ForEach-Object { Write-Host "  $($_.FullName)" }
+          scoop bucket add extras
+          scoop install autohotkey
 
       - name: Compile
         shell: pwsh
         run: |
-          $ahk2exe = Get-ChildItem -Path "C:\ahk" -Filter "Ahk2Exe.exe" -Recurse | Select-Object -First 1
-          $ahkExe = Get-ChildItem -Path "C:\ahk" -Filter "AutoHotkey64.exe" -Recurse | Select-Object -First 1
-          if (-not $ahkExe) { $ahkExe = Get-ChildItem -Path "C:\ahk" -Filter "AutoHotkey.exe" -Recurse | Select-Object -First 1 }
-          Write-Host "Ahk2Exe: $($ahk2exe.FullName)"
-          Write-Host "AHK: $($ahkExe.FullName)"
+          $ahkDir = "$env:USERPROFILE\scoop\apps\autohotkey\current"
+          Write-Host "AHK directory: $ahkDir"
+          Get-ChildItem -Path $ahkDir -Recurse -Filter "*.exe" | ForEach-Object { Write-Host "  $($_.FullName)" }
+
+          $ahk2exe = Get-ChildItem -Path $ahkDir -Filter "Ahk2Exe.exe" -Recurse | Select-Object -First 1
+          $ahkExe = Get-ChildItem -Path $ahkDir -Filter "AutoHotkey64.exe" -Recurse | Select-Object -First 1
+          if (-not $ahkExe) { $ahkExe = Get-ChildItem -Path $ahkDir -Filter "AutoHotkey.exe" -Recurse | Select-Object -First 1 }
+
           & "$($ahk2exe.FullName)" /in "$env:GITHUB_WORKSPACE\CapsLockCtrl.ahk" /out "$env:GITHUB_WORKSPACE\CapsLockCtrl.exe" /bin "$($ahkExe.DirectoryName)"
 
       - name: Verify
         shell: pwsh
         run: |
-          if (Test-Path "CapsLockCtrl.exe") {
-            Write-Host "Compiled: CapsLockCtrl.exe ($((Get-Item CapsLockCtrl.exe).Length) bytes)"
-          } else {
-            Write-Host "ERROR: CapsLockCtrl.exe not found!"
-            Get-ChildItem -Path "$env:GITHUB_WORKSPACE" | ForEach-Object { Write-Host "  $($_.Name)" }
+          Get-ChildItem -Path "$env:GITHUB_WORKSPACE" -Filter "*.exe" | ForEach-Object {
+            Write-Host "$($_.Name): $($_.Length) bytes"
+          }
+          if (-not (Test-Path "$env:GITHUB_WORKSPACE\CapsLockCtrl.exe")) {
+            Write-Host "ERROR: CapsLockCtrl.exe was not created!"
+            exit 1
           }
 
       - name: Release
