@@ -14,33 +14,61 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install AutoHotkey v2 via Scoop
+      - name: Install AutoHotkey v2
+        run: choco install autohotkey.portable --no-progress -y
+
+      - name: Download Ahk2Exe
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $release = Invoke-RestMethod -Uri "https://api.github.com/repos/AutoHotkey/Ahk2Exe/releases/latest" -Headers @{ Authorization = "Bearer $env:GH_TOKEN" }
+          $asset = $release.assets | Where-Object { $_.name -like 'Ahk2Exe*.zip' } | Select-Object -First 1
+          $zip = "$env:RUNNER_TEMP\ahk2exe.zip"
+          Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $zip
+          Expand-Archive -Path $zip -DestinationPath "$env:RUNNER_TEMP\ahk2exe"
+          $ahk2exePath = (Get-ChildItem -Path "$env:RUNNER_TEMP\ahk2exe" -Filter "Ahk2Exe.exe" -Recurse | Select-Object -First 1).FullName
+          "AHK2EXE=$ahk2exePath" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Find AHK runtime
         shell: pwsh
         run: |
-          scoop bucket add extras
-          scoop install autohotkey
+          $ahkExe = Get-ChildItem -Path "C:\ProgramData\chocolatey\lib\autohotkey.portable" -Filter "AutoHotkey64.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $ahkExe) { $ahkExe = Get-ChildItem -Path "C:\ProgramData\chocolatey\lib\autohotkey.portable" -Filter "AutoHotkey*.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1 }
+          "AHK_DIR=$($ahkExe.DirectoryName)" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "AHK_EXE=$($ahkExe.Name)" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Compile
         shell: pwsh
         run: |
-          $ahkDir = "$env:USERPROFILE\scoop\apps\autohotkey\current"
-          Write-Host "AHK directory: $ahkDir"
-          Get-ChildItem -Path $ahkDir -Recurse -Filter "*.exe" | ForEach-Object { Write-Host "  $($_.FullName)" }
+          $ahk2exe = "$env:AHK2EXE"
+          $ahkBase = "$env:AHK_DIR\$env:AHK_EXE"
+          $script = "$env:GITHUB_WORKSPACE\CapsLockCtrl.ahk"
+          $output = "$env:GITHUB_WORKSPACE\CapsLockCtrl.exe"
+          $binDir = [System.IO.Path]::GetDirectoryName($ahkBase)
 
-          $ahk2exe = Get-ChildItem -Path $ahkDir -Filter "Ahk2Exe.exe" -Recurse | Select-Object -First 1
-          $ahkExe = Get-ChildItem -Path $ahkDir -Filter "AutoHotkey64.exe" -Recurse | Select-Object -First 1
-          if (-not $ahkExe) { $ahkExe = Get-ChildItem -Path $ahkDir -Filter "AutoHotkey.exe" -Recurse | Select-Object -First 1 }
+          Write-Host "Ahk2Exe: $ahk2exe"
+          Write-Host "AHK base: $ahkBase"
+          Write-Host "Bin dir: $binDir"
+          Write-Host "Script: $script"
+          Write-Host "Output: $output"
 
-          & "$($ahk2exe.FullName)" /in "$env:GITHUB_WORKSPACE\CapsLockCtrl.ahk" /out "$env:GITHUB_WORKSPACE\CapsLockCtrl.exe" /bin "$($ahkExe.DirectoryName)"
+          # Use .NET Process for GUI app (Ahk2Exe)
+          $psi = New-Object System.Diagnostics.ProcessStartInfo
+          $psi.FileName = $ahk2exe
+          $psi.Arguments = "/in `"$script`" /out `"$output`" /bin `"$binDir`""
+          $psi.UseShellExecute = $true
 
-      - name: Verify
-        shell: pwsh
-        run: |
-          Get-ChildItem -Path "$env:GITHUB_WORKSPACE" -Filter "*.exe" | ForEach-Object {
-            Write-Host "$($_.Name): $($_.Length) bytes"
-          }
-          if (-not (Test-Path "$env:GITHUB_WORKSPACE\CapsLockCtrl.exe")) {
-            Write-Host "ERROR: CapsLockCtrl.exe was not created!"
+          $p = [System.Diagnostics.Process]::Start($psi)
+          $p.WaitForExit()
+
+          Write-Host "ExitCode: $($p.ExitCode)"
+
+          if (Test-Path $output) {
+            Write-Host "SUCCESS: CapsLockCtrl.exe created ($((Get-Item $output).Length) bytes)"
+          } else {
+            Write-Host "FAILED: CapsLockCtrl.exe not found"
+            Get-ChildItem -Path "$env:GITHUB_WORKSPACE" | ForEach-Object { Write-Host "  $($_.Name)" }
             exit 1
           }
 
