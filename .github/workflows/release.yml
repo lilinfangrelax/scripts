@@ -15,31 +15,33 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install AutoHotkey v2
+        run: choco install autohotkey.portable --no-progress -y
+
+      - name: Download Ahk2Exe
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          $release = Invoke-RestMethod -Uri "https://api.github.com/repos/AutoHotkey/AutoHotkey/releases/latest" -Headers @{ Authorization = "Bearer $env:GH_TOKEN" }
-          $asset = $release.assets | Where-Object { $_.name -like 'AutoHotkey_2*.zip' } | Select-Object -First 1
-          $zip = "$env:RUNNER_TEMP\ahk.zip"
+          # Get latest Ahk2Exe release
+          $release = Invoke-RestMethod -Uri "https://api.github.com/repos/AutoHotkey/Ahk2Exe/releases/latest" -Headers @{ Authorization = "Bearer $env:GH_TOKEN" }
+          $asset = $release.assets | Where-Object { $_.name -like 'Ahk2Exe.zip' } | Select-Object -First 1
+          $zip = "$env:RUNNER_TEMP\ahk2exe.zip"
           Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $zip
-          Expand-Archive -Path $zip -DestinationPath "$env:RUNNER_TEMP\ahk"
-          Get-ChildItem -Recurse -Path "$env:RUNNER_TEMP\ahk" | ForEach-Object { Write-Host $_.FullName }
+          Expand-Archive -Path $zip -DestinationPath "$env:RUNNER_TEMP\ahk2exe"
+          "AHK2EXE_DIR=$env:RUNNER_TEMP\ahk2exe" | Out-File -FilePath $env:GITHUB_ENV -Append
 
-      - name: Find AHK root
+      - name: Find AHK runtime
         shell: pwsh
         run: |
-          $ahkExe = Get-ChildItem -Recurse -Path "$env:RUNNER_TEMP\ahk" -Filter "AutoHotkey64.exe" | Select-Object -First 1
-          if (-not $ahkExe) { $ahkExe = Get-ChildItem -Recurse -Path "$env:RUNNER_TEMP\ahk" -Filter "AutoHotkey*.exe" | Select-Object -First 1 }
-          $ahk2exe = Get-ChildItem -Recurse -Path "$env:RUNNER_TEMP\ahk" -Filter "Ahk2Exe.exe" | Select-Object -First 1
+          $ahkExe = Get-ChildItem -Path "C:\ProgramData\chocolatey\lib\autohotkey.portable" -Filter "AutoHotkey64.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $ahkExe) { $ahkExe = Get-ChildItem -Path "C:\ProgramData\chocolatey\lib\autohotkey.portable" -Filter "AutoHotkey*.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1 }
           "AHK_DIR=$($ahkExe.DirectoryName)" | Out-File -FilePath $env:GITHUB_ENV -Append
           "AHK_EXE=$($ahkExe.Name)" | Out-File -FilePath $env:GITHUB_ENV -Append
-          "AHK2EXE=$($ahk2exe.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Compile
         shell: pwsh
         run: |
-          & "$env:AHK2EXE" /in CapsLockCtrl.ahk /out CapsLockCtrl.exe /base "$env:AHK_DIR\$env:AHK_EXE"
+          & "$env:AHK2EXE_DIR\Ahk2Exe.exe" /in CapsLockCtrl.ahk /out CapsLockCtrl.exe /base "$env:AHK_DIR\$env:AHK_EXE"
 
       - name: Release
         uses: softprops/action-gh-release@v2
