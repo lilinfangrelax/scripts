@@ -41,14 +41,28 @@ jobs:
       - name: Compile
         shell: pwsh
         run: |
-          Write-Host "Workspace: $env:GITHUB_WORKSPACE"
-          Write-Host "AHK2EXE: $env:AHK2EXE"
-          Write-Host "AHK_DIR: $env:AHK_DIR"
-          Write-Host "AHK_EXE: $env:AHK_EXE"
-          & "$env:AHK2EXE" /in "$env:GITHUB_WORKSPACE\CapsLockCtrl.ahk" /out "$env:GITHUB_WORKSPACE\CapsLockCtrl.exe" /bin "$env:AHK_DIR\$env:AHK_EXE" 2>&1
-          Write-Host "Exit code: $LASTEXITCODE"
+          $ahk2exe = "$env:AHK2EXE"
+          $ahk = "$env:AHK_DIR\$env:AHK_EXE"
+          $ws = "$env:GITHUB_WORKSPACE"
+          Write-Host "Ahk2Exe: $ahk2exe"
+          Write-Host "AHK base: $ahk"
+          Write-Host "Workspace: $ws"
+
+          # Try running Ahk2Exe and capturing output
+          $p = Start-Process -FilePath $ahk2exe -ArgumentList "/in `"$ws\CapsLockCtrl.ahk`" /out `"$ws\CapsLockCtrl.exe`" /bin `"$ahk`"" -Wait -NoNewWindow -PassThru -RedirectStandardOutput "$env:RUNNER_TEMP\ahk2exe_out.txt" -RedirectStandardError "$env:RUNNER_TEMP\ahk2exe_err.txt"
+          Write-Host "ExitCode: $($p.ExitCode)"
+
+          if (Test-Path "$env:RUNNER_TEMP\ahk2exe_out.txt") {
+            Write-Host "--- stdout ---"
+            Get-Content "$env:RUNNER_TEMP\ahk2exe_out.txt" | ForEach-Object { Write-Host $_ }
+          }
+          if (Test-Path "$env:RUNNER_TEMP\ahk2exe_err.txt") {
+            Write-Host "--- stderr ---"
+            Get-Content "$env:RUNNER_TEMP\ahk2exe_err.txt" | ForEach-Object { Write-Host $_ }
+          }
+
           Write-Host "Files in workspace:"
-          Get-ChildItem -Path "$env:GITHUB_WORKSPACE" -Filter "*.exe" | ForEach-Object { Write-Host "  $($_.Name) - $($_.Length) bytes" }
+          Get-ChildItem -Path $ws -Filter "*.exe" | ForEach-Object { Write-Host "  $($_.Name) - $($_.Length) bytes" }
 
       - name: Release
         uses: softprops/action-gh-release@v2
