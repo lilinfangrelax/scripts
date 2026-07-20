@@ -22,7 +22,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Get latest Ahk2Exe release
           $release = Invoke-RestMethod -Uri "https://api.github.com/repos/AutoHotkey/Ahk2Exe/releases/latest" -Headers @{ Authorization = "Bearer $env:GH_TOKEN" }
           $asset = $release.assets | Where-Object { $_.name -like 'Ahk2Exe*.zip' } | Select-Object -First 1
           $zip = "$env:RUNNER_TEMP\ahk2exe.zip"
@@ -42,7 +41,14 @@ jobs:
       - name: Compile
         shell: pwsh
         run: |
-          & "$env:AHK2EXE" /in CapsLockCtrl.ahk /out CapsLockCtrl.exe /base "$env:AHK_DIR\$env:AHK_EXE"
+          Write-Host "Workspace: $env:GITHUB_WORKSPACE"
+          Write-Host "AHK2EXE: $env:AHK2EXE"
+          Write-Host "AHK_DIR: $env:AHK_DIR"
+          Write-Host "AHK_EXE: $env:AHK_EXE"
+          & "$env:AHK2EXE" /in "$env:GITHUB_WORKSPACE\CapsLockCtrl.ahk" /out "$env:GITHUB_WORKSPACE\CapsLockCtrl.exe" /bin "$env:AHK_DIR\$env:AHK_EXE" 2>&1
+          Write-Host "Exit code: $LASTEXITCODE"
+          Write-Host "Files in workspace:"
+          Get-ChildItem -Path "$env:GITHUB_WORKSPACE" -Filter "*.exe" | ForEach-Object { Write-Host "  $($_.Name) - $($_.Length) bytes" }
 
       - name: Release
         uses: softprops/action-gh-release@v2
